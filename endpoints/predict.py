@@ -1,14 +1,13 @@
 import os
 import numpy as np
-import cv2
 from flask import request, jsonify
 from flask_restx import Namespace, Resource, reqparse
 from utils.load_classifier import get_classifier
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
-# from tensorflow.keras.preprocessing.image import ImageDataGenerator 
 from tensorflow.keras import Model
-from tensorflow import convert_to_tensor, float32, expand_dims
+from tensorflow.keras.preprocessing import image
+from flask_cors import cross_origin
 
 from config import UPLOAD_FOLDER
 from utils.file_validations import allowed_file
@@ -22,9 +21,10 @@ ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
 CATEGORIES = ['Benign', 'Malignant']
 
 upload_parser = reqparse.RequestParser()
-upload_parser.add_argument('file', type=FileStorage, location='files', required=True)
+upload_parser.add_argument('file', type=FileStorage, location='files', required=True, )
 
 @api.route('/prediction')
+# @cross_origin()
 class predict(Resource):
     @api.expect(upload_parser)
     def post(self):
@@ -42,20 +42,19 @@ class predict(Resource):
             file_path = os.path.join(UPLOAD_FOLDER, filename)
             file.save(file_path)
             file.close()
-            img=cv2.imread(file_path)
-            img = cv2.resize(img, (299,299), interpolation = cv2.INTER_AREA)
-            cv2.imshow('abc', img)
-            cv2.waitKey(5000)
-            imgData = convert_to_tensor(img, dtype=float32)
-            imgData = expand_dims(imgData , 0)
+            img_ = image.load_img(file_path, target_size=(299, 299))
+            img_array = image.img_to_array(img_)
+            img_processed = np.expand_dims(img_array, axis=0) 
+            img_processed /= 255.  
+            predictions = classifier.predict(img_processed)
+            pred = predictions[0]
+            predicted_class = CATEGORIES[ np.argmax(pred)]
             os.remove(file_path)
-            prediction = classifier.predict(imgData)
-            predicted_class = CATEGORIES[np.argmax(prediction[0])]
             resp = jsonify({
-                'predicted_class' : f'{predicted_class}',
-                'prediction' : f'{prediction[0]}',
+                'classes': CATEGORIES,
+                'prediction': list(map(lambda x : float(x), list(pred))),
+                'predicted_class' : str(predicted_class),
                 'file_name' : filename,
-                'categories' : CATEGORIES
                 })
             resp.status_code = 200
             return resp

@@ -3,6 +3,7 @@ from flask_restx import Namespace, Resource, reqparse
 from flask import request, jsonify
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
+from flask_cors import cross_origin
 
 from utils import load_classifier
 from utils.file_validations import allowed_file
@@ -16,6 +17,7 @@ upload_parser = reqparse.RequestParser()
 upload_parser.add_argument('file', type=FileStorage, location='files', required=True)
 
 @api.route('/update_classifier_file')
+# @cross_origin()
 class predict(Resource):
     @api.expect(upload_parser)
     def post(self):
